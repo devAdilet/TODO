@@ -1,4 +1,12 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile
+} from 'firebase/auth'
+import { auth } from '../firebase/config'
 
 const AuthContext = createContext()
 
@@ -15,58 +23,61 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user')
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser))
-      } catch (error) {
-        console.error('Error loading user:', error)
-        localStorage.removeItem('user')
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUser({
+          uid: user.uid,
+          email: user.email,
+          name: user.displayName,
+          id: user.uid // Keep id for compatibility
+        })
+      } else {
+        setUser(null)
       }
-    }
-    setLoading(false)
+      setLoading(false)
+    })
+
+    return unsubscribe
   }, [])
 
-  const login = (email, password) => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]')
-    const foundUser = users.find(u => u.email === email && u.password === password)
-    
-    if (foundUser) {
-      const userData = { ...foundUser }
-      delete userData.password
-      setUser(userData)
-      localStorage.setItem('user', JSON.stringify(userData))
+  const login = async (email, password) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
       return { success: true }
+    } catch (error) {
+      console.error("Login error:", error)
+      return { success: false, error: error.message }
     }
-    return { success: false, error: 'Invalid email or password' }
   }
 
-  const register = (email, password, name) => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]')
-    
-    if (users.find(u => u.email === email)) {
-      return { success: false, error: 'User with this email already exists' }
+  const register = async (email, password, name) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      await updateProfile(userCredential.user, {
+        displayName: name
+      })
+
+      // Update local state immediately to reflect name
+      setUser({
+        uid: userCredential.user.uid,
+        email: userCredential.user.email,
+        name: name,
+        id: userCredential.user.uid
+      })
+
+      return { success: true }
+    } catch (error) {
+      console.error("Register error:", error)
+      return { success: false, error: error.message }
     }
-
-    const newUser = {
-      id: Date.now().toString(),
-      email,
-      name,
-      createdAt: new Date().toISOString()
-    }
-
-    users.push({ ...newUser, password })
-    localStorage.setItem('users', JSON.stringify(users))
-
-    setUser(newUser)
-    localStorage.setItem('user', JSON.stringify(newUser))
-    
-    return { success: true }
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem('user')
+  const logout = async () => {
+    try {
+      await signOut(auth)
+    } catch (error) {
+      console.error("Logout error:", error)
+    }
   }
 
   const value = {

@@ -24,7 +24,7 @@ const translations = {
     edit: 'Edit',
     add: 'Add',
     set: 'Set',
-    
+
     // Tasks
     tasks: 'Tasks',
     myTasks: 'My Tasks',
@@ -33,7 +33,7 @@ const translations = {
     noTasks: 'No tasks',
     addFirstTask: 'Add your first task above',
     deleteTask: 'Delete this task?',
-    
+
     // Budget
     budget: 'Budget',
     overview: 'Overview',
@@ -65,7 +65,7 @@ const translations = {
     deleteCategory: 'Delete this category? All transactions in this category will be uncategorized.',
     overBudget: 'Over budget by',
     scheduled: 'Scheduled',
-    
+
     // Reminders
     reminders: 'Reminders',
     addReminder: 'Add Reminder',
@@ -75,7 +75,30 @@ const translations = {
     addFirstReminder: 'Add your first reminder above',
     deleteReminder: 'Delete this reminder?',
     reminderNote: 'Note: Reminders will be sent via email when the scheduled time arrives. Make sure your email notifications are enabled in your account settings.',
-    
+
+    // Subscriptions
+    subscriptions: 'Subscriptions',
+    monthlySpend: 'Monthly Spend',
+    annualProjection: 'Annual Projection',
+    activeSubscriptions: 'Active Subscriptions',
+    upcomingRenewals: 'Upcoming Renewals',
+    service: 'Service',
+    billingCycle: 'Billing Cycle',
+    nextBilling: 'Next Billing',
+    status: 'Status',
+    active: 'Active',
+    inactive: 'Inactive',
+    monthly: 'Monthly',
+    yearly: 'Yearly',
+    addSubscription: 'Add Subscription',
+    editSubscription: 'Edit Subscription',
+    serviceName: 'Service Name (e.g. Netflix)',
+    cost: 'Cost',
+    firstPaymentDate: 'First Payment Date',
+    deleteSubscription: 'Delete this subscription?',
+    noSubscriptions: 'No subscriptions yet',
+    addFirstSubscription: 'Add your first subscription to track recurring payments',
+
     // Auth
     loginToAccount: 'Login to your account',
     createAccount: 'Create a new account',
@@ -100,6 +123,7 @@ const translations = {
     selectFutureDate: 'Please select a future date and time',
     selectCategoryForExpense: 'Please select a category for expenses',
     thisTransaction: 'this transaction',
+    includingSubscriptions: 'Including subscriptions',
   },
   ru: {
     // Common
@@ -114,7 +138,7 @@ const translations = {
     edit: 'Редактировать',
     add: 'Добавить',
     set: 'Установить',
-    
+
     // Tasks
     tasks: 'Задачи',
     myTasks: 'Мои Задачи',
@@ -123,7 +147,7 @@ const translations = {
     noTasks: 'Нет задач',
     addFirstTask: 'Добавьте свою первую задачу выше',
     deleteTask: 'Удалить эту задачу?',
-    
+
     // Budget
     budget: 'Бюджет',
     overview: 'Обзор',
@@ -155,7 +179,7 @@ const translations = {
     deleteCategory: 'Удалить эту категорию? Все транзакции в этой категории станут без категории.',
     overBudget: 'Превышение бюджета на',
     scheduled: 'Запланировано',
-    
+
     // Reminders
     reminders: 'Напоминания',
     addReminder: 'Добавить напоминание',
@@ -165,7 +189,30 @@ const translations = {
     addFirstReminder: 'Добавьте свое первое напоминание выше',
     deleteReminder: 'Удалить это напоминание?',
     reminderNote: 'Примечание: Напоминания будут отправлены по электронной почте, когда наступит запланированное время. Убедитесь, что уведомления по электронной почте включены в настройках вашего аккаунта.',
-    
+
+    // Subscriptions
+    subscriptions: 'Подписки',
+    monthlySpend: 'Расход в месяц',
+    annualProjection: 'Прогноз на год',
+    activeSubscriptions: 'Активные подписки',
+    upcomingRenewals: 'Ближайшие списания',
+    service: 'Сервис',
+    billingCycle: 'Цикл оплаты',
+    nextBilling: 'След. оплата',
+    status: 'Статус',
+    active: 'Активна',
+    inactive: 'Неактивна',
+    monthly: 'Ежемесячно',
+    yearly: 'Ежегодно',
+    addSubscription: 'Добавить подписку',
+    editSubscription: 'Редактировать подписку',
+    serviceName: 'Название сервиса (напр. Netflix)',
+    cost: 'Стоимость',
+    firstPaymentDate: 'Дата первого платежа',
+    deleteSubscription: 'Удалить эту подписку?',
+    noSubscriptions: 'Нет подписок',
+    addFirstSubscription: 'Добавьте первую подписку для отслеживания регулярных платежей',
+
     // Auth
     loginToAccount: 'Войдите в свой аккаунт',
     createAccount: 'Создайте новый аккаунт',
@@ -190,6 +237,7 @@ const translations = {
     selectFutureDate: 'Выберите будущую дату и время',
     selectCategoryForExpense: 'Пожалуйста, выберите категорию для расходов',
     thisTransaction: 'эту транзакцию',
+    includingSubscriptions: 'Включая подписки',
   }
 }
 

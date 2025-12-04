@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
+import { db } from '../firebase/config'
+import {
+  collection,
+  addDoc,
+  deleteDoc,
+  updateDoc,
+  doc,
+  onSnapshot,
+  query,
+  orderBy
+} from 'firebase/firestore'
 
 function Budget() {
   const { user } = useAuth()
@@ -8,119 +19,135 @@ function Budget() {
   const [mode, setMode] = useState('overview') // 'overview' or 'settings'
   const [categories, setCategories] = useState([])
   const [transactions, setTransactions] = useState([])
+  const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
-  
+
   // Transaction form
   const [type, setType] = useState('expense')
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [categoryId, setCategoryId] = useState('')
-  
+
   // Category form
   const [categoryName, setCategoryName] = useState('')
   const [categoryAmount, setCategoryAmount] = useState('')
   const [editingCategory, setEditingCategory] = useState(null)
 
   useEffect(() => {
-    if (user) {
-      loadData()
+    if (!user) return
+
+    // Load Categories
+    const catQuery = query(
+      collection(db, 'users', user.uid || user.id, 'categories'),
+      orderBy('createdAt', 'asc')
+    )
+
+    const unsubscribeCat = onSnapshot(catQuery, (snapshot) => {
+      const newCats = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setCategories(newCats)
+      // Set default category for form if needed
+      if (newCats.length > 0 && !categoryId) {
+        setCategoryId(newCats[0].id)
+      }
+    }, (error) => {
+      console.error("Error fetching categories: ", error)
+    })
+
+    // Load Transactions
+    const txQuery = query(
+      collection(db, 'users', user.uid || user.id, 'transactions'),
+      orderBy('date', 'desc')
+    )
+
+    const unsubscribeTx = onSnapshot(txQuery, (snapshot) => {
+      const newTxs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setTransactions(newTxs)
+    }, (error) => {
+      console.error("Error fetching transactions: ", error)
+    })
+
+    // Load Subscriptions
+    const subQuery = query(
+      collection(db, 'users', user.uid || user.id, 'subscriptions')
+    )
+
+    const unsubscribeSub = onSnapshot(subQuery, (snapshot) => {
+      const newSubs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setSubscriptions(newSubs)
+      setLoading(false)
+    }, (error) => {
+      console.error("Error fetching subscriptions: ", error)
+      setLoading(false)
+    })
+
+    return () => {
+      unsubscribeCat()
+      unsubscribeTx()
+      unsubscribeSub()
     }
   }, [user])
 
-  const loadData = () => {
-    if (!user) return
-    
-    try {
-      // Load categories
-      const savedCategories = localStorage.getItem(`budget_categories_${user.id}`)
-      if (savedCategories) {
-        const parsed = JSON.parse(savedCategories)
-        setCategories(parsed)
-        if (parsed.length > 0 && !categoryId) {
-          setCategoryId(parsed[0].id)
-        }
-      }
-      
-      // Load transactions
-      const savedTransactions = localStorage.getItem(`transactions_${user.id}`)
-      if (savedTransactions) {
-        const parsed = JSON.parse(savedTransactions)
-        parsed.sort((a, b) => new Date(b.date) - new Date(a.date))
-        setTransactions(parsed)
-      }
-    } catch (error) {
-      console.error('Error loading data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const saveCategories = (updated) => {
-    if (!user) return
-    try {
-      localStorage.setItem(`budget_categories_${user.id}`, JSON.stringify(updated))
-      setCategories(updated)
-    } catch (error) {
-      console.error('Error saving categories:', error)
-      alert('Failed to save category')
-    }
-  }
-
-  const saveTransactions = (updated) => {
-    if (!user) return
-    try {
-      localStorage.setItem(`transactions_${user.id}`, JSON.stringify(updated))
-      setTransactions(updated)
-    } catch (error) {
-      console.error('Error saving transactions:', error)
-      alert('Failed to save transaction')
-    }
-  }
-
   // Category management
-  const addCategory = (e) => {
+  const addCategory = async (e) => {
     e.preventDefault()
     const amountNum = parseFloat(categoryAmount)
-    
+
     if (!categoryName.trim() || !amountNum || amountNum <= 0) {
       alert(t('fillCorrectly'))
       return
     }
 
-    if (editingCategory) {
-      // Update existing
-      const updated = categories.map(cat =>
-        cat.id === editingCategory.id
-          ? { ...cat, name: categoryName.trim(), plannedAmount: amountNum }
-          : cat
-      )
-      saveCategories(updated)
-      setEditingCategory(null)
-    } else {
-      // Create new
-      const category = {
-        id: Date.now().toString(),
-        name: categoryName.trim(),
-        plannedAmount: amountNum,
-        createdAt: new Date().toISOString()
+    try {
+      if (editingCategory) {
+        // Update existing
+        const catRef = doc(db, 'users', user.uid || user.id, 'categories', editingCategory.id)
+        await updateDoc(catRef, {
+          name: categoryName.trim(),
+          plannedAmount: amountNum
+        })
+        setEditingCategory(null)
+      } else {
+        // Create new
+        await addDoc(collection(db, 'users', user.uid || user.id, 'categories'), {
+          name: categoryName.trim(),
+          plannedAmount: amountNum,
+          createdAt: new Date().toISOString()
+        })
       }
-      saveCategories([...categories, category])
+
+      setCategoryName('')
+      setCategoryAmount('')
+    } catch (error) {
+      console.error("Error saving category: ", error)
+      alert('Failed to save category')
     }
-    
-    setCategoryName('')
-    setCategoryAmount('')
   }
 
-  const deleteCategory = (id) => {
+  const deleteCategory = async (id) => {
     if (window.confirm(t('deleteCategory'))) {
-      const updated = categories.filter(cat => cat.id !== id)
-      saveCategories(updated)
-      
-      // Remove category from transactions
-      const updatedTransactions = transactions.map(tx =>
-        tx.categoryId === id ? { ...tx, categoryId: null } : tx
-      )
-      saveTransactions(updatedTransactions)
+      try {
+        // Delete category
+        await deleteDoc(doc(db, 'users', user.uid || user.id, 'categories', id))
+
+        // Update transactions to remove categoryId
+        // Note: In a real app, you might want to do this in a batch or cloud function
+        const txsToUpdate = transactions.filter(tx => tx.categoryId === id)
+        for (const tx of txsToUpdate) {
+          const txRef = doc(db, 'users', user.uid || user.id, 'transactions', tx.id)
+          await updateDoc(txRef, { categoryId: null })
+        }
+      } catch (error) {
+        console.error("Error deleting category: ", error)
+      }
     }
   }
 
@@ -137,10 +164,10 @@ function Budget() {
   }
 
   // Transaction management
-  const addTransaction = (e) => {
+  const addTransaction = async (e) => {
     e.preventDefault()
     const amountNum = parseFloat(amount)
-    
+
     if (!amountNum || amountNum <= 0 || !description.trim()) {
       alert(t('fillCorrectly'))
       return
@@ -151,26 +178,30 @@ function Budget() {
       return
     }
 
-    const transaction = {
-      id: Date.now().toString(),
-      type,
-      amount: amountNum,
-      description: description.trim(),
-      categoryId: type === 'expense' ? categoryId : null,
-      date: new Date().toISOString()
-    }
+    try {
+      await addDoc(collection(db, 'users', user.uid || user.id, 'transactions'), {
+        type,
+        amount: amountNum,
+        description: description.trim(),
+        categoryId: type === 'expense' ? categoryId : null,
+        date: new Date().toISOString()
+      })
 
-    const updated = [transaction, ...transactions]
-    saveTransactions(updated)
-    
-    setAmount('')
-    setDescription('')
+      setAmount('')
+      setDescription('')
+    } catch (error) {
+      console.error("Error adding transaction: ", error)
+      alert('Failed to save transaction')
+    }
   }
 
-  const deleteTransaction = (id) => {
+  const deleteTransaction = async (id) => {
     if (window.confirm(t('delete') + ' ' + t('thisTransaction') + '?')) {
-      const updated = transactions.filter(t => t.id !== id)
-      saveTransactions(updated)
+      try {
+        await deleteDoc(doc(db, 'users', user.uid || user.id, 'transactions', id))
+      } catch (error) {
+        console.error("Error deleting transaction: ", error)
+      }
     }
   }
 
@@ -178,20 +209,29 @@ function Budget() {
   const calculateBudget = () => {
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    
+
     // Filter transactions for current month
-    const monthlyTransactions = transactions.filter(tx => 
+    const monthlyTransactions = transactions.filter(tx =>
       new Date(tx.date) >= startOfMonth
     )
 
-    // Calculate totals
-    const totalIncome = monthlyTransactions
+    // Calculate totals from transactions
+    const transactionIncome = monthlyTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + (t.amount || 0), 0)
-    
-    const totalExpense = monthlyTransactions
+
+    const transactionExpense = monthlyTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + (t.amount || 0), 0)
+
+    // Calculate subscription expenses (monthly pro-rated)
+    const subscriptionExpense = subscriptions.reduce((acc, sub) => {
+      if (sub.status !== 'active') return acc
+      return acc + (sub.cycle === 'monthly' ? sub.cost : sub.cost / 12)
+    }, 0)
+
+    const totalIncome = transactionIncome
+    const totalExpense = transactionExpense + subscriptionExpense
 
     // Calculate per category
     const categoryMap = {}
@@ -215,12 +255,13 @@ function Budget() {
       totalIncome,
       totalExpense,
       balance: totalIncome - totalExpense,
-      categoryMap
+      categoryMap,
+      subscriptionExpense
     }
   }
 
-  const { totalIncome, totalExpense, balance, categoryMap } = calculateBudget()
-  
+  const { totalIncome, totalExpense, balance, categoryMap, subscriptionExpense } = calculateBudget()
+
   // Get recent transactions
   const recentTransactions = transactions.slice(0, 10)
 
@@ -235,21 +276,19 @@ function Budget() {
         <div className="flex gap-2">
           <button
             onClick={() => setMode('overview')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
-              mode === 'overview'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium transition ${mode === 'overview'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+              }`}
           >
             {t('overview')}
           </button>
           <button
             onClick={() => setMode('settings')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
-              mode === 'settings'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium transition ${mode === 'settings'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+              }`}
           >
             {t('settings')}
           </button>
@@ -269,6 +308,11 @@ function Budget() {
               <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('totalExpense')}</p>
                 <p className="text-2xl font-bold text-red-600 dark:text-red-400">${totalExpense.toFixed(2)}</p>
+                {subscriptionExpense > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {t('includingSubscriptions')}: ${subscriptionExpense.toFixed(2)}
+                  </p>
+                )}
               </div>
               <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('balance')}</p>
@@ -292,7 +336,7 @@ function Budget() {
                   const data = categoryMap[cat.id] || { name: cat.name, planned: cat.plannedAmount, spent: 0 }
                   const percentage = Math.min((data.spent / data.planned) * 100, 100)
                   const isOver = data.spent > data.planned
-                  
+
                   return (
                     <div key={cat.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                       <div className="flex justify-between items-center mb-2">
@@ -303,9 +347,8 @@ function Budget() {
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 overflow-hidden">
                         <div
-                          className={`h-full transition-all duration-300 ${
-                            isOver ? 'bg-red-500' : percentage >= 80 ? 'bg-yellow-500' : 'bg-green-500'
-                          }`}
+                          className={`h-full transition-all duration-300 ${isOver ? 'bg-red-500' : percentage >= 80 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
                           style={{ width: `${Math.min(percentage, 100)}%` }}
                         ></div>
                       </div>
@@ -387,18 +430,17 @@ function Budget() {
             ) : (
               <ul className="space-y-2">
                 {recentTransactions.map((transaction) => {
-                  const category = transaction.categoryId 
+                  const category = transaction.categoryId
                     ? categories.find(c => c.id === transaction.categoryId)
                     : null
-                  
+
                   return (
                     <li
                       key={transaction.id}
-                      className={`flex justify-between items-center p-4 rounded-lg shadow-sm border mb-2 ${
-                        transaction.type === 'income'
-                          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                          : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                      }`}
+                      className={`flex justify-between items-center p-4 rounded-lg shadow-sm border mb-2 ${transaction.type === 'income'
+                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                        : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                        }`}
                     >
                       <div className="flex-1">
                         <div className="font-medium text-gray-800 dark:text-gray-200">{transaction.description}</div>
@@ -415,9 +457,8 @@ function Budget() {
                       </div>
                       <div className="flex items-center gap-3">
                         <span
-                          className={`font-bold text-lg ${
-                            transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                          }`}
+                          className={`font-bold text-lg ${transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                            }`}
                         >
                           {transaction.type === 'income' ? '+' : '-'}${transaction.amount.toFixed(2)}
                         </span>

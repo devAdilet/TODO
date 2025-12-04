@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
+import { db } from '../firebase/config'
+import {
+  collection,
+  addDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  where,
+  orderBy
+} from 'firebase/firestore'
 
 function Reminders() {
   const { user } = useAuth()
@@ -11,46 +22,34 @@ function Reminders() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (user) {
-      loadReminders()
-    }
+    if (!user) return
+
+    // Create a query against the collection.
+    // We store reminders in a subcollection: users/{userId}/reminders
+    const q = query(
+      collection(db, 'users', user.uid || user.id, 'reminders'),
+      where('remindAt', '>', new Date().toISOString()), // Only future reminders
+      orderBy('remindAt', 'asc')
+    )
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const newReminders = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setReminders(newReminders)
+      setLoading(false)
+    }, (error) => {
+      console.error("Error fetching reminders: ", error)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
   }, [user])
 
-  const loadReminders = () => {
-    if (!user) return
-    
-    try {
-      const saved = localStorage.getItem(`reminders_${user.id}`)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        // Filter only upcoming reminders (remindAt > now)
-        const now = new Date()
-        const upcoming = parsed.filter(r => new Date(r.remindAt) > now)
-        upcoming.sort((a, b) => new Date(a.remindAt) - new Date(b.remindAt))
-        setReminders(upcoming)
-      }
-    } catch (error) {
-      console.error('Error loading reminders:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const saveReminders = (updated) => {
-    if (!user) return
-    
-    try {
-      localStorage.setItem(`reminders_${user.id}`, JSON.stringify(updated))
-      setReminders(updated)
-    } catch (error) {
-      console.error('Error saving reminders:', error)
-      alert(t('fillCorrectly'))
-    }
-  }
-
-  const addReminder = (e) => {
+  const addReminder = async (e) => {
     e.preventDefault()
-    
+
     if (!text.trim() || !remindAt) {
       alert(t('fillAllFields'))
       return
@@ -62,50 +61,33 @@ function Reminders() {
       return
     }
 
-    // Create reminder object with userId, userEmail, and userLang
-    const reminder = {
-      id: Date.now().toString(),
-      text: text.trim(),
-      remindAt: remindAtDate.toISOString(),
-      notified: false,
-      userId: user.id,
-      userEmail: user.email,
-      userLang: language
-    }
+    try {
+      await addDoc(collection(db, 'users', user.uid || user.id, 'reminders'), {
+        text: text.trim(),
+        remindAt: remindAtDate.toISOString(),
+        notified: false,
+        userId: user.uid || user.id,
+        userEmail: user.email,
+        userLang: language,
+        createdAt: new Date().toISOString()
+      })
 
-    // Load all reminders (including past ones) to save
-    const saved = localStorage.getItem(`reminders_${user.id}`)
-    const allReminders = saved ? JSON.parse(saved) : []
-    const updated = [...allReminders, reminder]
-    
-    // Save all reminders
-    localStorage.setItem(`reminders_${user.id}`, JSON.stringify(updated))
-    
-    // Update displayed reminders (only upcoming)
-    const now = new Date()
-    const upcoming = updated.filter(r => new Date(r.remindAt) > now)
-    upcoming.sort((a, b) => new Date(a.remindAt) - new Date(b.remindAt))
-    setReminders(upcoming)
-    
-    setText('')
-    setRemindAt('')
+      setText('')
+      setRemindAt('')
+    } catch (error) {
+      console.error("Error adding reminder: ", error)
+      alert(t('errorAddingReminder') || 'Error adding reminder')
+    }
   }
 
-  const deleteReminder = (id) => {
+  const deleteReminder = async (id) => {
     if (window.confirm(t('deleteReminder'))) {
-      // Load all reminders
-      const saved = localStorage.getItem(`reminders_${user.id}`)
-      const allReminders = saved ? JSON.parse(saved) : []
-      
-      // Remove the reminder
-      const updated = allReminders.filter(r => r.id !== id)
-      localStorage.setItem(`reminders_${user.id}`, JSON.stringify(updated))
-      
-      // Update displayed reminders (only upcoming)
-      const now = new Date()
-      const upcoming = updated.filter(r => new Date(r.remindAt) > now)
-      upcoming.sort((a, b) => new Date(a.remindAt) - new Date(b.remindAt))
-      setReminders(upcoming)
+      try {
+        await deleteDoc(doc(db, 'users', user.uid || user.id, 'reminders', id))
+      } catch (error) {
+        console.error("Error deleting reminder: ", error)
+        alert(t('errorDeletingReminder') || 'Error deleting reminder')
+      }
     }
   }
 

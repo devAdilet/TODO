@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext'
 import Todos from '../components/Todos'
 import Budget from '../components/Budget'
 import Reminders from '../components/Reminders'
+import Subscriptions from '../components/Subscriptions'
 
 function Dashboard() {
   const { user, logout } = useAuth()
@@ -15,7 +16,8 @@ function Dashboard() {
   const tabs = [
     { id: 'todos', name: t('tasks'), icon: '✓' },
     { id: 'budget', name: t('budget'), icon: '$' },
-    { id: 'reminders', name: t('reminders'), icon: '⏰' }
+    { id: 'reminders', name: t('reminders'), icon: '⏰' },
+    { id: 'subscriptions', name: t('subscriptions'), icon: '💳' }
   ]
 
   return (
@@ -33,26 +35,24 @@ function Dashboard() {
               <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                 <button
                   onClick={() => changeLanguage('en')}
-                  className={`px-3 py-1 rounded text-sm font-medium transition ${
-                    language === 'en'
+                  className={`px-3 py-1 rounded text-sm font-medium transition ${language === 'en'
                       ? 'bg-blue-600 text-white'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
+                    }`}
                 >
                   EN
                 </button>
                 <button
                   onClick={() => changeLanguage('ru')}
-                  className={`px-3 py-1 rounded text-sm font-medium transition ${
-                    language === 'ru'
+                  className={`px-3 py-1 rounded text-sm font-medium transition ${language === 'ru'
                       ? 'bg-blue-600 text-white'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
+                    }`}
                 >
                   RU
                 </button>
               </div>
-              
+
               {/* Theme Switcher */}
               <button
                 onClick={toggleTheme}
@@ -61,7 +61,7 @@ function Dashboard() {
               >
                 {theme === 'dark' ? '☀️' : '🌙'}
               </button>
-              
+
               <button
                 onClick={logout}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-medium text-sm"
@@ -81,11 +81,10 @@ function Dashboard() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${
-                activeTab === tab.id
+              className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${activeTab === tab.id
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               <span>{tab.icon}</span>
               <span>{tab.name}</span>
@@ -98,6 +97,7 @@ function Dashboard() {
           {activeTab === 'todos' && <Todos />}
           {activeTab === 'budget' && <Budget />}
           {activeTab === 'reminders' && <Reminders />}
+          {activeTab === 'subscriptions' && <Subscriptions />}
         </div>
       </main>
     </div>
